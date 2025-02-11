@@ -72,7 +72,6 @@ public class ItemGrabber : MonoBehaviour
             ThrowItemFromHand();
         }
 
-        // Остальная логика Update остаётся неизменной
         if (!isInHand)
         {
             if (Input.GetMouseButtonDown(0))

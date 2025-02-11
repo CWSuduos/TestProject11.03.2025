@@ -47,8 +47,6 @@ public class PlayerMovement : MonoBehaviour
         HandleCrouch();
         HandleMovement();
         HandleMouseLook();
-
-        // Выход из игры при нажатии Esc
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             ExitGame();
@@ -91,7 +89,6 @@ public class PlayerMovement : MonoBehaviour
         Vector3 move = transform.right * x + transform.forward * z;
         controller.Move(move * currentSpeed * Time.deltaTime);
 
-        // Обработка звуков шагов
         HandleFootsteps(move);
 
         if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
