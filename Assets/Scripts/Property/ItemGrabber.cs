@@ -1,6 +1,7 @@
 using Unity.VisualScripting.Antlr3.Runtime.Misc;
 using UnityEngine;
 
+
 public class ItemGrabber : MonoBehaviour
 {
     [System.Serializable]
@@ -10,9 +11,10 @@ public class ItemGrabber : MonoBehaviour
         public GameObject displayObject;
         public GameObject originalPrefab;
     }
+
     [Header("Положение в руке")]
-    [SerializeField] private RectTransform handPosition; 
-    [SerializeField] private Vector3 handRotation = new Vector3(30f, 45f, 0f); 
+    [SerializeField] private RectTransform handPosition;
+    [SerializeField] private Vector3 handRotation = new Vector3(30f, 45f, 0f);
     [SerializeField] private Vector3 handOffset = new Vector3(0.5f, -0.3f, 0.3f);
 
     [Header("Стандартное положение")]
@@ -24,11 +26,10 @@ public class ItemGrabber : MonoBehaviour
     [SerializeField] private float inventoryItemScale = 50f;
     private bool isInHand = false;
 
-
     [Header("Настройки камеры")]
-    [SerializeField] private float zoomFOV = 30f; 
+    [SerializeField] private float zoomFOV = 30f;
     [SerializeField] private float normalFOV = 60f;
-    [SerializeField] private float zoomSpeed = 5f; 
+    [SerializeField] private float zoomSpeed = 5f;
 
     [Header("Настройки")]
     [SerializeField] private float grabDistance = 3f;
@@ -39,12 +40,17 @@ public class ItemGrabber : MonoBehaviour
     [SerializeField] private float normalRotationAngle = 45f;
     [SerializeField] private float shiftRotationAngle = 90f;
     [SerializeField] private float spawnDistance = 2f;
+    
+ 
 
     private Rigidbody heldItem;
     private Vector3 holdPosition;
     private Quaternion targetRotation;
     private bool isZoomed = false;
     private float currentFOV;
+
+    // Ссылка на компонент Scanner
+    private Scanner scanner;
 
     private void Start()
     {
@@ -62,11 +68,29 @@ public class ItemGrabber : MonoBehaviour
             playerCamera.fieldOfView = normalFOV;
             currentFOV = normalFOV;
         }
+
+        // Получаем компонент Scanner
+        scanner = GetComponent<Scanner>();
+        if (scanner == null)
+        {
+            Debug.LogError("Сканер не найден!");
+        }
     }
 
     private void Update()
     {
-        // Проверка на нажатие Q для выбрасывания предмета
+        // Переключение сканера по нажатию C независимо от захваченного объекта
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            if (scanner != null)
+            {
+                bool newState = !scanner.IsScannerActive();
+                scanner.ToggleScanner(newState);
+                Debug.Log("Сканер переключен: " + newState);
+            }
+        }
+
+        // Остальной функционал ItemGrabber
         if (Input.GetKeyDown(KeyCode.Q) && heldItem != null)
         {
             ThrowItemFromHand();
@@ -113,35 +137,42 @@ public class ItemGrabber : MonoBehaviour
                 }
             }
         }
+
+        UpdateCameraZoom();
+    }
+
+    public bool IsScannerActive()
+    {
+        return scanner != null && scanner.isScannerActive;
     }
 
     private void ThrowItemFromHand()
     {
-        if (heldItem != null) 
+        if (heldItem != null)
         {
             heldItem.transform.SetParent(null);
 
-            Rigidbody rb = heldItem.GetComponent<Rigidbody>(); 
+            Rigidbody rb = heldItem.GetComponent<Rigidbody>();
             if (rb != null)
             {
-                rb.useGravity = true;       
-                rb.isKinematic = false;     
-                rb.freezeRotation = false;  
-                rb.drag = 0;                
+                rb.useGravity = true;
+                rb.isKinematic = false;
+                rb.freezeRotation = false;
+                rb.drag = 0;
 
-                Vector3 throwDirection = playerCamera.transform.forward; 
+                Vector3 throwDirection = playerCamera.transform.forward;
                 rb.AddForce(throwDirection * 5f, ForceMode.Impulse);
             }
 
             Collider col = heldItem.GetComponent<Collider>();
             if (col != null)
             {
-                col.isTrigger = false; 
+                col.isTrigger = false;
             }
 
             heldItem = null;
             isFromInventory = false;
-            isInHand = false; 
+            isInHand = false;
 
             if (playerMovement != null)
             {
@@ -184,6 +215,7 @@ public class ItemGrabber : MonoBehaviour
             }
         }
     }
+
     private void SpawnItemFromSlot(int slotIndex)
     {
         if (slotIndex >= 0 && slotIndex < slots.Length &&
@@ -228,7 +260,6 @@ public class ItemGrabber : MonoBehaviour
                 BoxCollider newCol = spawnedItem.AddComponent<BoxCollider>();
                 newCol.isTrigger = true;
             }
-
             heldItem = rb;
             targetRotation = rb.rotation;
             isFromInventory = true;
@@ -250,15 +281,14 @@ public class ItemGrabber : MonoBehaviour
                 handOffset.y,
                 handOffset.z
             );
-
             heldItem.transform.localRotation = Quaternion.Euler(handRotation);
         }
     }
+
     private void TryGrabItem()
     {
         Ray ray = playerCamera.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
-
         if (Physics.Raycast(ray, out hit, grabDistance, grabLayer))
         {
             Rigidbody rb = hit.collider.GetComponent<Rigidbody>();
@@ -269,8 +299,7 @@ public class ItemGrabber : MonoBehaviour
                 heldItem.freezeRotation = true;
                 heldItem.drag = 10;
                 targetRotation = heldItem.rotation;
-                isFromInventory = false; 
-
+                isFromInventory = false;
                 if (playerMovement != null)
                     playerMovement.enabled = false;
             }
@@ -289,17 +318,13 @@ public class ItemGrabber : MonoBehaviour
                 slots[i].displayObject = Instantiate(heldItem.gameObject, slots[i].slotTransform);
                 Rigidbody rb = slots[i].displayObject.GetComponent<Rigidbody>();
                 if (rb != null) Destroy(rb);
-
                 Collider col = slots[i].displayObject.GetComponent<Collider>();
                 if (col != null) Destroy(col);
-
                 slots[i].displayObject.transform.localPosition = Vector3.zero;
                 slots[i].displayObject.transform.localRotation = Quaternion.Euler(0, 180, 0);
                 slots[i].displayObject.transform.localScale = Vector3.one * inventoryItemScale;
-
                 Destroy(heldItem.gameObject);
                 heldItem = null;
-
                 if (playerMovement != null)
                 {
                     playerMovement.enabled = true;
@@ -308,7 +333,8 @@ public class ItemGrabber : MonoBehaviour
                 break;
             }
         }
-    }  
+    }
+
     private void FitItemToSlot(Transform item, Transform slot)
     {
         RectTransform slotRect = slot as RectTransform;
@@ -316,21 +342,19 @@ public class ItemGrabber : MonoBehaviour
         Renderer itemRenderer = item.GetComponent<Renderer>();
         if (itemRenderer == null) return;
         Bounds itemBounds = itemRenderer.bounds;
-        float slotSize = Mathf.Min(slotRect.rect.width, slotRect.rect.height) * 0.8f; 
+        float slotSize = Mathf.Min(slotRect.rect.width, slotRect.rect.height) * 0.8f;
         float itemSize = Mathf.Max(itemBounds.size.x, itemBounds.size.y, itemBounds.size.z);
         float scale = slotSize / itemSize;
         item.localScale = Vector3.one * scale;
     }
-  
+
     private void HandleItemRotation()
     {
         if (Input.GetKeyDown(KeyCode.R))
         {
             float rotationAmount = Input.GetKey(KeyCode.LeftShift) ? shiftRotationAngle : normalRotationAngle;
-
             float mouseX = Input.GetAxis("Mouse X");
             float mouseY = Input.GetAxis("Mouse Y");
-
             if (Mathf.Abs(mouseX) > Mathf.Abs(mouseY))
             {
                 if (mouseX > 0)
@@ -348,22 +372,18 @@ public class ItemGrabber : MonoBehaviour
         }
     }
 
-
     private void HandleItemHold()
     {
         if (heldItem != null)
         {
             Vector3 targetPos;
             Quaternion targetRot;
-
             if (isFromInventory)
             {
-              
                 targetPos = playerCamera.transform.position +
                            playerCamera.transform.right * handOffset.x +
                            playerCamera.transform.up * handOffset.y +
                            playerCamera.transform.forward * handOffset.z;
-
                 targetRot = playerCamera.transform.rotation * Quaternion.Euler(handRotation);
             }
             else
@@ -372,22 +392,22 @@ public class ItemGrabber : MonoBehaviour
                            playerCamera.transform.TransformDirection(normalHoldPosition);
                 targetRot = targetRotation;
             }
-
             Vector3 lerpPos = Vector3.Lerp(heldItem.position, targetPos, Time.deltaTime * grabSpeed);
             heldItem.MovePosition(lerpPos);
             heldItem.MoveRotation(Quaternion.Lerp(heldItem.rotation, targetRot, Time.deltaTime * grabSpeed));
         }
     }
+
     private void UpdateCameraZoom()
     {
         if (playerCamera != null)
         {
             float targetFOV = isZoomed ? zoomFOV : normalFOV;
-
             currentFOV = Mathf.Lerp(currentFOV, targetFOV, Time.deltaTime * zoomSpeed);
             playerCamera.fieldOfView = currentFOV;
         }
     }
+
     private void HandleZoom()
     {
         if (Input.GetKeyDown(KeyCode.V))
@@ -395,6 +415,7 @@ public class ItemGrabber : MonoBehaviour
             isZoomed = !isZoomed;
         }
     }
+
     private void DropItem()
     {
         if (heldItem != null)
@@ -403,8 +424,7 @@ public class ItemGrabber : MonoBehaviour
             heldItem.freezeRotation = false;
             heldItem.drag = 0;
             heldItem = null;
-            isFromInventory = false; 
-
+            isFromInventory = false;
             if (playerMovement != null)
             {
                 playerMovement.enabled = true;
@@ -412,6 +432,7 @@ public class ItemGrabber : MonoBehaviour
             }
         }
     }
+
     private void LockCursor()
     {
         Cursor.lockState = CursorLockMode.Locked;

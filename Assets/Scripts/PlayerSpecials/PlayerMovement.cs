@@ -14,16 +14,17 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 normalCameraPos;
     private Vector3 crouchCameraPos;
     private bool isCrouching;
-
+    private float currentHeight;
+    private float crouchTransitionSpeed = 5f; 
     [Header("Камера")]
     [SerializeField] private float mouseSensitivity = 2f;
     public Camera playerCamera;
     private float xRotation = 0f;
 
     [Header("Звук шагов")]
-    [SerializeField] private AudioClip footstepSound; 
-    [SerializeField] private float footstepInterval = 0.5f; 
-    private AudioSource audioSource; 
+    [SerializeField] private AudioClip footstepSound;
+    [SerializeField] private float footstepInterval = 0.5f;
+    private AudioSource audioSource;
     private float footstepTimer = 0f;
 
     private CharacterController controller;
@@ -37,6 +38,8 @@ public class PlayerMovement : MonoBehaviour
 
         normalCameraPos = playerCamera.transform.localPosition;
         crouchCameraPos = new Vector3(normalCameraPos.x, normalCameraPos.y / 2f, normalCameraPos.z);
+
+        currentHeight = normalHeight;
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -58,18 +61,13 @@ public class PlayerMovement : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.X))
         {
             isCrouching = !isCrouching;
-
-            if (isCrouching)
-            {
-                controller.height = crouchHeight;
-                playerCamera.transform.localPosition = crouchCameraPos;
-            }
-            else
-            {
-                controller.height = normalHeight;
-                playerCamera.transform.localPosition = normalCameraPos;
-            }
         }
+
+        float targetHeight = isCrouching ? crouchHeight : normalHeight;
+        Vector3 targetCameraPos = isCrouching ? crouchCameraPos : normalCameraPos;
+        currentHeight = Mathf.Lerp(currentHeight, targetHeight, crouchTransitionSpeed * Time.deltaTime);
+        controller.height = currentHeight;
+        playerCamera.transform.localPosition = Vector3.Lerp(playerCamera.transform.localPosition, targetCameraPos, crouchTransitionSpeed * Time.deltaTime);
     }
 
     private void HandleMovement()
@@ -118,7 +116,7 @@ public class PlayerMovement : MonoBehaviour
         {
             footstepTimer -= Time.deltaTime;
 
-            if (footstepTimer <= 0f) 
+            if (footstepTimer <= 0f)
             {
                 PlayFootstepSound();
                 footstepTimer = footstepInterval;
@@ -134,13 +132,13 @@ public class PlayerMovement : MonoBehaviour
     {
         if (audioSource != null && footstepSound != null)
         {
-            audioSource.PlayOneShot(footstepSound); 
+            audioSource.PlayOneShot(footstepSound);
         }
     }
 
     private void ExitGame()
     {
-        Debug.Log("Выход из игры..."); 
+        Debug.Log("Выход из игры...");
         Application.Quit();
     }
 
